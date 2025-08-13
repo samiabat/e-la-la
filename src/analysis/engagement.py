@@ -1,11 +1,15 @@
-from typing import Tuple
+from typing import Tuple, List, Sequence
 import numpy as np
 import librosa
 import cv2
 
 # Simple engagement heuristic: combine short-window audio RMS energy with frame diff-based motion
 
-def best_window(path: str, window_sec: float = 2.0, stride_sec: float = 0.5) -> Tuple[float, float]:
+def _score_series(path: str, window_sec: float = 2.0, stride_sec: float = 0.5) -> Tuple[np.ndarray, float, float]:
+    """
+    Internal: compute engagement score per window along the video.
+    Returns (scores array, stride_sec, window_sec).
+    """
     """
     Returns (start_sec, score) for the best window.
     """
@@ -70,6 +74,50 @@ def best_window(path: str, window_sec: float = 2.0, stride_sec: float = 0.5) -> 
     audio_n = norm(rms)
     motion_n = norm(motion_series)
     score = 0.6 * audio_n + 0.4 * motion_n
+    return score, stride_sec, window_sec
+
+
+def best_window(path: str, window_sec: float = 2.0, stride_sec: float = 0.5) -> Tuple[float, float]:
+    """Returns (start_sec, score) for the best window."""
+    score, stride, _win = _score_series(path, window_sec=window_sec, stride_sec=stride_sec)
     best_idx = int(np.argmax(score)) if len(score) else 0
-    start_sec = best_idx * stride_sec
+    start_sec = best_idx * stride
     return start_sec, float(score[best_idx] if len(score) else 0.0)
+
+
+def top_windows_multi(
+    path: str,
+    durations: Sequence[float],
+    stride_sec: float = 1.0,
+    max_clips: int = 3,
+    min_gap_sec: float = 1.0,
+) -> List[Tuple[float, float, float]]:
+    """
+    Return up to max_clips non-overlapping windows across multiple durations.
+    Each tuple is (start_sec, duration_sec, score).
+    """
+    candidates: List[Tuple[float, float, float]] = []
+    for dur in durations:
+        s, stride, win = _score_series(path, window_sec=float(dur), stride_sec=float(stride_sec))
+        for i, sc in enumerate(s):
+            start = i * stride
+            candidates.append((start, float(dur), float(sc)))
+
+    # sort by score desc
+    candidates.sort(key=lambda t: t[2], reverse=True)
+
+    chosen: List[Tuple[float, float, float]] = []
+    def overlaps(a, b) -> bool:
+        a0, a1 = a[0], a[0] + a[1]
+        b0, b1 = b[0], b[0] + b[1]
+        return not (a1 + min_gap_sec <= b0 or b1 + min_gap_sec <= a0)
+
+    for cand in candidates:
+        if len(chosen) >= max_clips:
+            break
+        if any(overlaps(cand, c) for c in chosen):
+            continue
+        chosen.append(cand)
+    # sort chosen by start time for nicer ordering
+    chosen.sort(key=lambda t: t[0])
+    return chosen
