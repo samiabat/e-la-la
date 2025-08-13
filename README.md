@@ -1,5 +1,7 @@
 # e-la-la
 
+# this is now working without an issue.
+
 Automated short-form content pipeline (legal-compliant): analyze a source video you own (or CC-licensed), find the most engaging segment, crop to vertical, and add basic styled subtitles for TikTok/Shorts.
 
 Important: Do not download or reuse copyrighted videos without permission. This repo only processes local files or Creative Commons videos you have the right to use.
@@ -63,5 +65,21 @@ scripts/
 
 - Subtitles use Whisper (tiny) by default; first run will download a small model. You can skip subtitles with `--no-subtitles`.
 - Engagement heuristic uses audio energy + scene activity. You can tweak weights in `configs/pipeline.yaml`.
-- Uploading to TikTok/YouTube is not automated here; export files are ready for manual upload or your own uploader.
+- Uploading to TikTok/YouTube is not automated here; export files are ready for manual upload or your own 
+uploader.
 
+
+# To run the current working version we can run this command.
+```
+python scripts/run_pipeline.py \
+  --input data/raw/mrbeast.mp4 \
+  --profile tiktok \
+  --multi \
+  --max-clips 10 \
+  --durations 20,30,45,60 \
+  --stride 1.0 \
+  --min-dur 30 \
+  --max-dur 120 \
+  --head-pad 0 \
+  --tail-pad 0
+```
