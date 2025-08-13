@@ -1,0 +1,29 @@
+# Pipeline configuration
+
+profiles:
+  tiktok:
+    width: 1080
+    height: 1920
+    fps: 30
+    target_duration_sec: 20
+    background_blur: 25
+    padding_color: "#000000"
+
+analysis:
+  # weights for engagement score
+  audio_energy_weight: 0.6
+  scene_activity_weight: 0.4
+  window_sec: 2.0
+  stride_sec: 0.5
+
+subtitles:
+  enabled: true
+  model: "tiny"
+  style:
+    font: "Inter"
+    font_size: 48
+    color: "#FFFFFF"
+    stroke_color: "#000000"
+    stroke_width: 3
+    margin_bottom: 180
+    karaoke: true
