@@ -13,12 +13,14 @@ def burn_subtitles_karaoke(
     input_path: str,
     output_path: str,
     model: str = "tiny",
-    font: str = "Inter",
-    font_size: int = 58,
-    primary_color: str = "&H00FFFFFF&",  # ASS BGR with &H..& format
-    outline_color: str = "&H00000000&",
+    font: str = "Poppins",
+    font_size: int = 240,
+    primary_color: str = "&H00FFFFFF&",  # Base text color
+    highlight_color: str = "&H0000FF00&",  # Background while word is spoken
     outline: int = 3,
     shadow: int = 0,
+    margin_left: int = 100,
+    margin_right: int = 100,
     margin_bottom: int = 160,
 ):
     """
@@ -36,7 +38,7 @@ def burn_subtitles_karaoke(
     model_obj = whisper.load_model(model)
     res = model_obj.transcribe(input_path, word_timestamps=True)
 
-    # Build ASS with karaoke effect using \k tags
+    # Build ASS with karaoke effect using \ko tags
     def ass_time(sec: float) -> str:
         # ASS uses h:mm:ss.cs (centiseconds)
         cs = int(round(sec * 100))
@@ -52,10 +54,11 @@ def burn_subtitles_karaoke(
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
+WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Karaoke,{font},{font_size},{primary_color},{primary_color},{outline_color},&H00000000&,0,0,0,0,100,100,0,0,1,{outline},{shadow},2,60,60,{margin_bottom},1
+Style: Karaoke,{font},{font_size},{primary_color},{primary_color},{highlight_color},&H00000000&,0,0,0,0,100,100,0,0,1,{outline},{shadow},2,{margin_left},{margin_right},{margin_bottom},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -76,17 +79,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         start = float(words[0]['start'])
         end = float(words[-1]['end'])
-        # Build per-word karaoke: {\k<centiseconds>}word
+        # Build per-word karaoke: {\ko<centiseconds>}word
         parts: List[str] = []
         prev = start
-        for w in words:
+        for i, w in enumerate(words):
             w_start = float(w.get('start', prev))
             w_end = float(w.get('end', w_start))
             dur_cs = max(1, int(round((w_end - w_start) * 100)))
-            token = (w.get('word') or w.get('text') or '').strip()
+            token = (w.get('word') or w.get('text') or '')
             # escape braces
             token = token.replace('{', '\\{').replace('}', '\\}')
-            parts.append(f"{{\\k{dur_cs}}}{token}")
+            parts.append(f"{{\\ko{dur_cs}}}{token}")
+            if i < len(words) - 1:
+                parts.append(' ')
             prev = w_end
         payload = ''.join(parts)
         lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Karaoke,,0,0,0,,{payload}")
