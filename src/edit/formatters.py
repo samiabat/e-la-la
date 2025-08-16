@@ -10,7 +10,7 @@ def to_vertical(
     height: int = 1920,
     blur: int = 18,
     padding_color: str = 'black',
-    fg_zoom: float = 1.04,  # subtle zoom on foreground to reduce letterbox area
+    fg_scale: float = 0.95,  # scale foreground height relative to canvas (e.g., 0.95 = 95%)
     bg_brightness: float = 0.08,  # lift background brightness slightly
     bg_saturation: float = 1.05,  # a touch more color on BG
 ):
@@ -31,14 +31,13 @@ def to_vertical(
         .filter('eq', brightness=bg_brightness, saturation=bg_saturation)
     )
 
-    # Foreground: fit within canvas, apply a subtle zoom, and center overlay
-    # Note: No padding, so background shows around the FG; slight zoom reduces BG area
+    # Foreground: target a fraction of canvas HEIGHT (keeps aspect ratio), centered
+    # Note: Scaling by height avoids the "too small" look on wide 16:9 sources.
     fg = (
         ffmpeg
         .input(input_path)
         .video
-    .filter('scale', width, height, force_original_aspect_ratio='decrease')
-    .filter('scale', f'iw*{fg_zoom}', f'ih*{fg_zoom}')
+        .filter('scale', -2, int(height * fg_scale))
     )
 
     video = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2').filter('format', 'yuv420p')
