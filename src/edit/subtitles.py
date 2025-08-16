@@ -14,14 +14,14 @@ def burn_subtitles_karaoke(
     output_path: str,
     model: str = "tiny",
     font: str = "DejaVu Sans",
-    font_size: int = 48,
-    primary_color: str = "&H00FFFFFF&",  # ASS BGR with &H..& format
-    secondary_color: str = "&H0000FF00&",  # highlight color for karaoke effect
-    outline_color: str = "&H00000000&",
-    outline: int = 3,
-    shadow: int = 0,
-    margin_lr: int = 80,
-    margin_bottom: int = 160,
+    font_size: int = 110,
+    primary_color: str = "&H00FFFFFF&",  # white text
+    secondary_color: str = "&H0000FF00&",  # green karaoke fill
+    outline_color: str = "&H00101010&",
+    outline: int = 8,
+    shadow: int = 3,
+    box_color: str = "&H80202020&",  # semi-transparent dark box
+    words_per_chunk: int = 3,
 ):
     """
     Transcribe with Whisper (if available) and burn animated karaoke-style subtitles.
@@ -54,17 +54,21 @@ def burn_subtitles_karaoke(
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
-WrapStyle: 2
+WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Karaoke,{font},{font_size},{primary_color},{secondary_color},{outline_color},&H00000000&,0,0,0,0,100,100,0,0,1,{outline},{shadow},2,{margin_lr},{margin_lr},{margin_bottom},1
+; Centered background box behind text
+Style: CenterBox,{font},{font_size},{primary_color},{secondary_color},{outline_color},{box_color},1,0,0,0,100,100,0,0,3,0,0,5,0,0,0,1
+; Centered thick foreground text with karaoke fill
+Style: CenterFG,{font},{font_size},{primary_color},{secondary_color},{outline_color},&H00000000&,1,0,0,0,100,100,0,0,1,{outline},{shadow},5,0,0,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
     lines: List[str] = [header]
+    wrap_tag = "{\\q0}"
     for seg in res.get('segments', []):
         words: List[Dict] = seg.get('words') or []
         if not words:
@@ -73,28 +77,37 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             if not text:
                 continue
             start, end = float(seg['start']), float(seg['end'])
-            line = f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Karaoke,,0,0,0,,{text}"
-            lines.append(line)
+            # Centered single line (no per-word timing available)
+            lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},CenterBox,,0,0,0,,{wrap_tag}{text}")
+            lines.append(f"Dialogue: 1,{ass_time(start)},{ass_time(end)},CenterFG,,0,0,0,,{wrap_tag}{text}")
             continue
 
-        start = float(words[0]['start'])
-        end = float(words[-1]['end'])
-        # Build per-word karaoke: {\k<centiseconds>}word
-        parts: List[str] = []
-        prev = start
-        for w in words:
-            w_start = float(w.get('start', prev))
-            w_end = float(w.get('end', w_start))
-            dur_cs = max(1, int(round((w_end - w_start) * 100)))
-            token = (w.get('word') or w.get('text') or '')
-            # escape braces
-            token = token.replace('{', '\\{').replace('}', '\\}')
-            if parts and not token.startswith(' '):
-                token = ' ' + token
-            parts.append(f"{{\\k{dur_cs}}}{token}")
-            prev = w_end
-        payload = ''.join(parts)
-        lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Karaoke,,0,0,0,,{payload}")
+        # Chunk into 2–3 word phrases centered on screen
+        n = max(1, int(words_per_chunk))
+        i = 0
+        while i < len(words):
+            chunk = words[i:i+n]
+            cstart = float(chunk[0].get('start', 0.0))
+            cend = float(chunk[-1].get('end', cstart))
+            # Plain text for box
+            plain = ' '.join([(w.get('word') or w.get('text') or '').strip() for w in chunk]).strip()
+            # Karaoke payload for foreground
+            parts: List[str] = []
+            prev = cstart
+            for j, w in enumerate(chunk):
+                w_start = float(w.get('start', prev))
+                w_end = float(w.get('end', w_start))
+                dur_cs = max(1, int(round((w_end - w_start) * 100)))
+                token = (w.get('word') or w.get('text') or '').strip()
+                token = token.replace('{', '\\{').replace('}', '\\}')
+                if j > 0:
+                    parts.append(' ')
+                parts.append(f"{{\\k{dur_cs}}}{token}")
+                prev = w_end
+            payload = ''.join(parts)
+            lines.append(f"Dialogue: 0,{ass_time(cstart)},{ass_time(cend)},CenterBox,,0,0,0,,{wrap_tag}{plain}")
+            lines.append(f"Dialogue: 1,{ass_time(cstart)},{ass_time(cend)},CenterFG,,0,0,0,,{wrap_tag}{payload}")
+            i += n
 
     with open(ass_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))
