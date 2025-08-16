@@ -8,8 +8,11 @@ def to_vertical(
     output_path: str,
     width: int = 1080,
     height: int = 1920,
-    blur: int = 25,
+    blur: int = 18,
     padding_color: str = 'black',
+    fg_scale: float = 0.95,  # scale foreground height relative to canvas (e.g., 0.95 = 95%)
+    bg_brightness: float = 0.08,  # lift background brightness slightly
+    bg_saturation: float = 1.05,  # a touch more color on BG
 ):
     """
     Convert any aspect to an exact WxH canvas (e.g., 1080x1920) by:
@@ -17,7 +20,7 @@ def to_vertical(
     - scaling the foreground to fit and padding to center
     Ensures the final output dimensions are exactly width x height.
     """
-    # Background: fill, crop, and blur to exact canvas
+    # Background: fill, crop, blur, and gently brighten to exact canvas
     bg = (
         ffmpeg
         .input(input_path)
@@ -25,24 +28,28 @@ def to_vertical(
         .filter('scale', width, height, force_original_aspect_ratio='increase')
         .filter('crop', width, height)
         .filter('boxblur', blur)
+        .filter('eq', brightness=bg_brightness, saturation=bg_saturation)
     )
 
-    # Foreground: fit within canvas, pad to center with chosen color
+    # Foreground: target a fraction of canvas HEIGHT (keeps aspect ratio), centered
+    # Note: Scaling by height avoids the "too small" look on wide 16:9 sources.
     fg = (
         ffmpeg
         .input(input_path)
         .video
-        .filter('scale', width, height, force_original_aspect_ratio='decrease')
-        .filter('pad', width, height, '(ow-iw)/2', '(oh-ih)/2', color=padding_color)
+        .filter('scale', -2, int(height * fg_scale))
     )
 
-    video = ffmpeg.overlay(bg, fg, x=0, y=0).filter('format', 'yuv420p')
-    audio = ffmpeg.input(input_path).audio
+    video = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2').filter('format', 'yuv420p')
+    a_inp = ffmpeg.input(input_path)
+    audio = a_inp.audio
 
-    ffmpeg.output(
-        video, audio, output_path,
-        r=30, preset='veryfast', crf=20, movflags='faststart'
-    ).overwrite_output().run(quiet=True)
+    (
+        ffmpeg
+        .output(video, audio, output_path, r=30, preset='veryfast', crf=20, movflags='faststart')
+        .overwrite_output()
+        .run(quiet=True)
+    )
 
 
 def cut_segment(input_path: str, output_path: str, start: float, duration: float):

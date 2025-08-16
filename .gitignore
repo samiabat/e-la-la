@@ -1,17 +1,54 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual env
-.venv/
-
-# macOS
+# macOS / editors
 .DS_Store
-
-# Editor
 .vscode/
 
-# Data
-/data/working/
-/data/outputs/
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.cache/
+tmp/
+
+# Data directories (keep structure with .gitkeep)
+data/raw/
+data/working/
+data/outputs/
+!data/raw/.gitkeep
+!data/working/.gitkeep
+!data/outputs/.gitkeep
+!data/outputs/shorts/.gitkeep
+
+# Media files (don’t commit local/CC downloads or renders)
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+*.flv
+*.wmv
+*.m4v
+*.ts
+*.m3u8
+
+# Audio
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+
+# Subtitles/intermediates
+*.srt
+*.ass
+*.vtt
+*.part
+*.ytdl
+
+# Models/caches
+.whisper_cache/
+whisper_cache/
+
