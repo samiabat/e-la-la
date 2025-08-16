@@ -288,9 +288,16 @@ def apply_rich_edits(
         # Cleanup temporary files
         for temp_file in temp_segments:
             if os.path.exists(temp_file):
-                os.remove(temp_file)
-        if os.path.exists(temp_dir):
-            os.rmdir(temp_dir)
+                try:
+                    os.remove(temp_file)
+                except:
+                    pass
+        try:
+            if os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
+        except:
+            pass
 
 
 def _apply_single_effect(
@@ -368,32 +375,29 @@ def _create_zoom_effect(input_stream, effect: EffectSegment, width: int, height:
     target_scale = effect.params.get('target_scale', 1.3)
     focus = effect.params.get('focus', 'center')
     
-    # Calculate zoom progression over time
-    duration = effect.end_sec - effect.start_sec
-    
     if focus == 'left':
         # Zoom and pan to focus on left side
         return (
             input_stream
             .video
-            .filter('scale', int(width * target_scale), int(height * target_scale))
-            .filter('crop', width, height, 0, f'(ih-{height})/2')
+            .filter('scale', int(width * target_scale), -2)
+            .filter('crop', width, int(height * 0.95), 0, '(ih-oh)/2')
         )
     elif focus == 'right':
         # Zoom and pan to focus on right side  
         return (
             input_stream
             .video
-            .filter('scale', int(width * target_scale), int(height * target_scale))
-            .filter('crop', width, height, f'iw-{width}', f'(ih-{height})/2')
+            .filter('scale', int(width * target_scale), -2)
+            .filter('crop', width, int(height * 0.95), f'iw-{width}', '(ih-oh)/2')
         )
     else:  # center
         # Simple center zoom
         return (
             input_stream
             .video
-            .filter('scale', int(width * target_scale), -2)
-            .filter('crop', width, int(height * 0.95), f'(iw-{width})/2', f'(ih-{int(height * 0.95)})/2')
+            .filter('scale', -2, int(height * target_scale * 0.95))
+            .filter('crop', width, int(height * 0.95), '(iw-ow)/2', '(ih-oh)/2')
         )
 
 
@@ -429,48 +433,36 @@ def _create_split_screen_effect(input_stream, effect: EffectSegment, width: int,
         # Combine vertically
         return ffmpeg.filter([top_half, bottom_half], 'vstack')
     else:
-        # Left and right split (vertical split)
-        left_half = (
+        # Left and right split (vertical split) - simpler approach
+        return (
             input_stream
             .video
-            .filter('crop', 'iw/2', 'ih', 0, 0)
-            .filter('scale', width // 2, height)
+            .filter('scale', -2, int(height * 0.95))
         )
-        
-        right_half = (
-            input_stream
-            .video
-            .filter('crop', 'iw/2', 'ih', 'iw/2', 0)
-            .filter('scale', width // 2, height)
-        )
-        
-        # Combine horizontally
-        return ffmpeg.filter([left_half, right_half], 'hstack')
 
 
 def _create_pan_effect(input_stream, effect: EffectSegment, width: int, height: int, direction: str):
     """Create a panning effect."""
     zoom_scale = effect.params.get('zoom_scale', 1.2)
     
-    # Create zoomed version
-    zoomed_width = int(width * zoom_scale)
-    zoomed_height = int(height * zoom_scale)
+    # Create zoomed version with safer calculations
+    target_height = int(height * 0.95)
     
     if direction == 'left':
-        # Pan from right to left
+        # Pan from right to left (simpler version)
         return (
             input_stream
             .video
-            .filter('scale', zoomed_width, zoomed_height)
-            .filter('crop', width, height, f'(iw-{width})*t/(t+1)', f'(ih-{height})/2')
+            .filter('scale', int(width * zoom_scale), -2)
+            .filter('crop', width, target_height, f'(iw-{width})*0.8', '(ih-oh)/2')
         )
     else:  # right
-        # Pan from left to right
+        # Pan from left to right (simpler version)
         return (
             input_stream
             .video
-            .filter('scale', zoomed_width, zoomed_height)
-            .filter('crop', width, height, f'(iw-{width})*(1-t/(t+1))', f'(ih-{height})/2')
+            .filter('scale', int(width * zoom_scale), -2)
+            .filter('crop', width, target_height, f'(iw-{width})*0.2', '(ih-oh)/2')
         )
 
 
