@@ -20,6 +20,7 @@ class PipelineConfig:
     subs_enabled: bool
     subs_model: str
     padding_color: str
+    rich_editing: bool
 
 
 def load_config(path: str, profile: str) -> PipelineConfig:
@@ -35,6 +36,7 @@ def load_config(path: str, profile: str) -> PipelineConfig:
         subs_enabled=bool(cfg.get('subtitles', {}).get('enabled', True)),
         subs_model=str(cfg.get('subtitles', {}).get('model', 'tiny')),
         padding_color=str(p.get('padding_color', '#000000')),
+        rich_editing=bool(p.get('rich_editing', False)),
     )
 
 
@@ -45,6 +47,7 @@ def run_pipeline(
     via_youtube_query: Optional[str] = None,
     duration_override: Optional[float] = None,
     subs_enabled_override: Optional[bool] = None,
+    rich_editing_override: Optional[bool] = None,
     idea_end: bool = True,
     min_dur: float = 20.0,
     max_dur: float = 120.0,
@@ -58,6 +61,8 @@ def run_pipeline(
         conf.duration = float(duration_override)
     if subs_enabled_override is not None:
         conf.subs_enabled = bool(subs_enabled_override)
+    if rich_editing_override is not None:
+        conf.rich_editing = bool(rich_editing_override)
 
     if via_youtube_query and not input_path:
         item = get_latest_cc_viral_video(via_youtube_query)
@@ -122,7 +127,18 @@ def run_pipeline(
         return final_audio
 
     vert_path = os.path.join('data/working', 'vertical.mp4')
-    to_vertical(seg_path, vert_path, width=conf.width, height=conf.height, blur=conf.blur, padding_color=conf.padding_color)
+    
+    if conf.rich_editing:
+        # Use rich effects for dynamic, engaging content
+        from src.edit.rich_effects import apply_rich_edits
+        apply_rich_edits(
+            seg_path, vert_path, 
+            width=conf.width, height=conf.height, 
+            blur=conf.blur, padding_color=conf.padding_color
+        )
+    else:
+        # Use basic vertical conversion
+        to_vertical(seg_path, vert_path, width=conf.width, height=conf.height, blur=conf.blur, padding_color=conf.padding_color)
 
     final_path = os.path.join('data/outputs/shorts', 'short_final.mp4')
     os.makedirs(os.path.dirname(final_path), exist_ok=True)
@@ -144,6 +160,7 @@ def run_pipeline_multi(
     max_clips: int = 3,
     stride_sec: float = 1.0,
     subs_enabled_override: Optional[bool] = None,
+    rich_editing_override: Optional[bool] = None,
     idea_end: bool = False,
     min_dur: float = 20.0,
     max_dur: float = 120.0,
@@ -155,6 +172,8 @@ def run_pipeline_multi(
     conf = load_config(config_path, profile)
     if subs_enabled_override is not None:
         conf.subs_enabled = bool(subs_enabled_override)
+    if rich_editing_override is not None:
+        conf.rich_editing = bool(rich_editing_override)
 
     if via_youtube_query and not input_path:
         item = get_latest_cc_viral_video(via_youtube_query)
@@ -221,7 +240,18 @@ def run_pipeline_multi(
             continue
 
         vert_path = os.path.join('data/working', f'vertical_{idx}.mp4')
-        to_vertical(seg_path, vert_path, width=conf.width, height=conf.height, blur=conf.blur, padding_color=conf.padding_color)
+        
+        if conf.rich_editing:
+            # Use rich effects for dynamic, engaging content
+            from src.edit.rich_effects import apply_rich_edits
+            apply_rich_edits(
+                seg_path, vert_path, 
+                width=conf.width, height=conf.height, 
+                blur=conf.blur, padding_color=conf.padding_color
+            )
+        else:
+            # Use basic vertical conversion
+            to_vertical(seg_path, vert_path, width=conf.width, height=conf.height, blur=conf.blur, padding_color=conf.padding_color)
 
         final_path = os.path.join('data/outputs/shorts', f'short_final_{idx}.mp4')
         if conf.subs_enabled:
