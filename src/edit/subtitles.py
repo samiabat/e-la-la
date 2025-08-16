@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict
+from typing import List, Dict
 import ffmpeg
 import tempfile
 import os
@@ -14,12 +14,15 @@ def burn_subtitles_karaoke(
     output_path: str,
     model: str = "tiny",
     font: str = "Inter",
-    font_size: int = 58,
+    font_size: int = 48,
     primary_color: str = "&H00FFFFFF&",  # ASS BGR with &H..& format
+    secondary_color: str = "&H0000FF00&",
     outline_color: str = "&H00000000&",
     outline: int = 3,
     shadow: int = 0,
     margin_bottom: int = 160,
+    margin_left: int = 100,
+    margin_right: int = 100,
 ):
     """
     Transcribe with Whisper (if available) and burn animated karaoke-style subtitles.
@@ -52,10 +55,11 @@ def burn_subtitles_karaoke(
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
+WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Karaoke,{font},{font_size},{primary_color},{primary_color},{outline_color},&H00000000&,0,0,0,0,100,100,0,0,1,{outline},{shadow},2,60,60,{margin_bottom},1
+Style: Karaoke,{font},{font_size},{primary_color},{secondary_color},{outline_color},&H00000000&,0,0,0,0,100,100,0,0,1,{outline},{shadow},2,{margin_left},{margin_right},{margin_bottom},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -83,12 +87,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             w_start = float(w.get('start', prev))
             w_end = float(w.get('end', w_start))
             dur_cs = max(1, int(round((w_end - w_start) * 100)))
-            token = (w.get('word') or w.get('text') or '').strip()
+            token = (w.get('word') or w.get('text') or '').lstrip()
             # escape braces
             token = token.replace('{', '\\{').replace('}', '\\}')
-            parts.append(f"{{\\k{dur_cs}}}{token}")
+            parts.append(f"{{\\k{dur_cs}}}{token} ")
             prev = w_end
-        payload = ''.join(parts)
+        payload = ''.join(parts).strip()
         lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Karaoke,,0,0,0,,{payload}")
 
     with open(ass_path, 'w', encoding='utf-8') as f:
