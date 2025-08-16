@@ -15,6 +15,7 @@ from src.pipeline import run_pipeline, run_pipeline_multi
 @click.option('--duration', type=float, default=None, help='Override target duration (sec)')
 @click.option('--query', 'yt_query', type=str, default=None, help='Creative Commons YouTube search query')
 @click.option('--no-subtitles', is_flag=True, help='Disable subtitle burn-in')
+@click.option('--rich-editing/--basic-editing', default=None, help='Enable rich editing with dynamic effects (auto-detected from config if not specified)')
 @click.option('--multi', is_flag=True, help='Generate multiple clips (variable durations)')
 @click.option('--max-clips', type=int, default=3, help='Max clips to generate in multi mode')
 @click.option('--durations', type=str, default=None, help='Comma-separated durations in seconds, e.g. 20,30,45,60')
@@ -24,7 +25,7 @@ from src.pipeline import run_pipeline, run_pipeline_multi
 @click.option('--min-dur', type=float, default=20.0, help='Minimum duration bound for idea-aware end (seconds)')
 @click.option('--max-dur', type=float, default=120.0, help='Maximum duration bound for idea-aware end (seconds)')
 @click.option('--audio-only', is_flag=True, help='Export audio files (mp3) instead of video')
-def main(input_path, profile, config_path, duration, yt_query, no_subtitles, multi, max_clips, durations, stride, tail_pad, head_pad, min_dur, max_dur, audio_only):
+def main(input_path, profile, config_path, duration, yt_query, no_subtitles, rich_editing, multi, max_clips, durations, stride, tail_pad, head_pad, min_dur, max_dur, audio_only):
     subs_override = False if no_subtitles else None
     if multi:
         dur_list = None
@@ -42,6 +43,7 @@ def main(input_path, profile, config_path, duration, yt_query, no_subtitles, mul
             max_clips=max_clips,
             stride_sec=stride,
             subs_enabled_override=subs_override,
+            rich_editing_override=rich_editing,
             idea_end=True,
             min_dur=min_dur,
             max_dur=max_dur,
@@ -59,6 +61,7 @@ def main(input_path, profile, config_path, duration, yt_query, no_subtitles, mul
             via_youtube_query=yt_query,
             duration_override=duration,
             subs_enabled_override=subs_override,
+            rich_editing_override=rich_editing,
             idea_end=True,
             min_dur=min_dur,
             max_dur=max_dur,
