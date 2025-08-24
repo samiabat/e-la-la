@@ -8,6 +8,7 @@ profiles:
     target_duration_sec: 20
     background_blur: 25
     padding_color: "#000000"
+    rich_editing: true
 
 analysis:
   # weights for engagement score
